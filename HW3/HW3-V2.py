@@ -137,6 +137,8 @@ if __name__ == "__main__":
     for i in range(epoch):
         total_loss = 0
         total_accuracy = 0
+        if i == 1:
+            alpha /= 10
         for j in range(iteration_epoch):
             grad = gradient(x_train, y_train, theta)
             for channel in range(3):
