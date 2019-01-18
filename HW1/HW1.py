@@ -14,3 +14,10 @@ y_test = np.int32(np.array(MNIST['y_test'][:,0]))
 
 MNIST.close()
 
+# Initialize weights/bias
+weight = np.random.rand(10,784)
+bias = np.random.rand(10)
+
+print(np.matmul(weight, x_train[0]) + bias)
+#print(weight)
+#print(bias)
