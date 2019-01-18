@@ -5,10 +5,25 @@ import time
 import copy
 from random import randint
 
-
 def softmax(input_vector):
     exp_vec = np.exp(input_vector)
     return np.divide(exp_vec, np.sum(exp_vec))
+
+def loss(y_pred, y_train):
+    return 0
+
+def gradient():
+    return 0
+
+def predict(weight, bias, y_pred, x_train):
+    index = 0
+    for img in x_train:
+        result = np.matmul(weight, img) + bias
+        soft_res = softmax(result)
+        y_pred[index] = np.argmax(soft_res)
+        index += 1
+    return y_pred
+    
 
 if __name__ == "__main__":
     # Load MNIST data
@@ -26,13 +41,8 @@ if __name__ == "__main__":
 
     # Training
     while True:
-        y_predicted = np.copy(y_train)
-        index = 0
-        for img in x_train:
-            result = np.matmul(weight, img) + bias
-            soft_res = softmax(result)
-            y_predicted[index] = np.argmax(soft_res)
-            index += 1
-        break
-    print(y_predicted)
+        y_pred = predict(weight, bias, np.copy(y_train), x_train)
+        if loss(y_pred, y_train) == 0:
+            break
+    print(y_pred)
     print(y_train)
