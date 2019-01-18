@@ -15,14 +15,10 @@ def loss(y_pred, y_train):
 def gradient():
     return 0
 
-def predict(weight, bias, y_pred, x_train):
-    index = 0
-    for img in x_train:
-        result = np.matmul(weight, img) + bias
-        soft_res = softmax(result)
-        y_pred[index] = np.argmax(soft_res)
-        index += 1
-    return y_pred
+def predict(weight, bias, img):
+    result = np.matmul(weight, img) + bias
+    soft_res = softmax(result)
+    return np.argmax(soft_res)
     
 
 if __name__ == "__main__":
@@ -41,20 +37,20 @@ if __name__ == "__main__":
 
     # Training
     while True:
-        y_pred = predict(weight, bias, np.copy(y_train), x_train)
+        y_pred = np.zeros(len(y_train))
+        for i in range(len(x_train)):
+            y_pred[i] = predict(weight, bias, x_train[i])
 
         if loss(y_pred, y_train) == 0:
             break
-    print(y_pred)
-    print(y_train)
-
 
     # Testing
     total_correct = 0
     for n in range( len(x_test)):
         y = y_test[n]
         x = x_test[n][:]
-        p = np.argmax(softmax(np.matmul(weight, x) + bias))
+        p = predict(weight, bias, x)
+        print(str(y) + " " + str(p))
         if p == y:
             total_correct += 1
 
