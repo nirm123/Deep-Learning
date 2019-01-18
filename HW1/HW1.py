@@ -9,9 +9,6 @@ from random import randint
 MNIST = h5py.File('MNISTdata.hdf5', 'r')
 x_train = np.float32(MNIST['x_train'][:])
 y_train = np.int32(np.array(MNIST['y_train'][:,0]))
-
-print(x_train)
-
 x_test = np.float32(MNIST['x_test'][:])
 y_test = np.int32(np.array(MNIST['y_test'][:,0]))
 
