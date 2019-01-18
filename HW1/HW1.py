@@ -42,7 +42,20 @@ if __name__ == "__main__":
     # Training
     while True:
         y_pred = predict(weight, bias, np.copy(y_train), x_train)
+
         if loss(y_pred, y_train) == 0:
             break
     print(y_pred)
     print(y_train)
+
+
+    # Testing
+    total_correct = 0
+    for n in range( len(x_test)):
+        y = y_test[n]
+        x = x_test[n][:]
+        p = np.argmax(softmax(np.matmul(weight, x) + bias))
+        if p == y:
+            total_correct += 1
+
+    print(total_correct/np.float(len(x_test)))
