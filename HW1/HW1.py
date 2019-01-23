@@ -9,15 +9,31 @@ def softmax(input_vector):
     exp_vec = np.exp(input_vector)
     return np.divide(exp_vec, np.sum(exp_vec))
 
-def loss(y_pred, y_train):
-    return 0
+def loss(theta, x, y):
+    loss = 0
+    for i in range(len(x)):
+        soft = softmax(np.matmul(theta, x[i]))
+        loss -= np.log(soft[y])
+        
+    return loss/len(x)
 
-def gradient():
-    return 0
+def gradient(x, y, theta):
+    dtheta = np.copy(theta)
+    elem = np.random.randint(0, len(x))
+    x_cur = x[elem]
+    y_cur = y[elem]
+    for z in range(len(theta)):
+        soft = softmax(np.matmul(theta, x_cur))
+        softZ = soft[z]
+        if z == y_cur:
+            dtheta[z] = -1*(1 - softZ)*x_cur
+        else:
+            dtheta[z] = -1*(-softZ)*x_cur
 
-def predict(weight, bias, img):
-    result = np.matmul(weight, img) + bias
-    soft_res = softmax(result)
+    return dtheta
+
+def predict(weight, img):
+    soft_res = softmax(np.matmul(weight, img))
     return np.argmax(soft_res)
     
 
@@ -31,27 +47,26 @@ if __name__ == "__main__":
 
     MNIST.close()
 
-    # Initialize weights/bias
+    # Initialize weights
     weight = np.random.rand(10,784)
-    bias = np.random.rand(10)
-
+    alpha = 0.01
+    iteration = 0
     # Training
     while True:
-        y_pred = np.zeros(len(y_train))
-        for i in range(len(x_train)):
-            y_pred[i] = predict(weight, bias, x_train[i])
-
-        if loss(y_pred, y_train) == 0:
+        grad = gradient(x_train, y_train, weight)
+        weight = np.subtract(weight, alpha*grad)
+        #print(loss(weight, x_train, y_train))
+        iteration += 1
+        if iteration == 1000:
             break
 
     # Testing
     total_correct = 0
-    for n in range( len(x_test)):
+    for n in range(len(x_test)):
         y = y_test[n]
         x = x_test[n][:]
-        p = predict(weight, bias, x)
-        print(str(y) + " " + str(p))
+        p = predict(weight, x)
+        # print(str(y) + " " + str(p))
         if p == y:
             total_correct += 1
-
     print(total_correct/np.float(len(x_test)))
