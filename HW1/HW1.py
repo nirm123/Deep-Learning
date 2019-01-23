@@ -50,11 +50,10 @@ if __name__ == "__main__":
     MNIST.close()
 
     # Initialize variables
-    weight = np.random.rand(10,784)
+    weight = np.random.randn(10,784)/np.sqrt(784)
     alpha = 0.01
     iteration = 0
     L_prev = loss(weight, x_train, y_train)
-    first = False
     print(str(L_prev) + " 0")
 
     # Training
@@ -65,11 +64,8 @@ if __name__ == "__main__":
         if iteration % 50 == 0:
             L = loss(weight, x_train, y_train)
             print(str(L) + " " + str(iteration))
-            if L < 26000 and first == False:
-                alpha /= 10
-                first = True
-            if L < 24000:
-                break
+        if iteration == 20000:
+            break
 
     print("\nNumber of Iterations: " + str(iteration))
     print("Final Alpha: " + str(alpha) + "\n")
