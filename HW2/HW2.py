@@ -16,6 +16,15 @@ def loss(theta, x, y):
         loss -= np.log(soft[y[i]])
     return loss
 
+def reLU(vector):
+    ret = vector
+    for i in range(0, len(ret)):
+        if ret[i] > 0:
+            continue
+        else:
+            ret[i] = 0
+    return ret
+
 def gradient(x, y, theta):
     dtheta = np.copy(theta)
     for i in range(5):
@@ -36,7 +45,10 @@ def gradient(x, y, theta):
     return  dtsum/5
 
 def predict(weight, img):
-    soft_res = softmax(np.matmul(weight, img))
+    Z = np.add(np.matmul(weight[0], img), bias[0])
+    H = reLU(Z)
+    U = np.add(np.matmul(weight[1], H), bias[1])
+    soft_res = softmax(U)
     return np.argmax(soft_res)
 
 if __name__ == "__main__":
@@ -56,11 +68,6 @@ if __name__ == "__main__":
     alpha = 0.01
     iteration = 0
 
-    print(weight[0])
-    print(weight[1])
-    print(bias[0])
-    print(bias[1])
-
     '''
     L_prev = loss(weight, x_train, y_train)
     print(str(L_prev) + " 0")
@@ -78,14 +85,14 @@ if __name__ == "__main__":
 
     print("\nNumber of Iterations: " + str(iteration))
     print("Final Alpha: " + str(alpha) + "\n")
+    '''
+
     # Testing
     total_correct = 0
     for n in range(len(x_test)):
         y = y_test[n]
         x = x_test[n][:]
         p = predict(weight, x)
-        # print(str(y) + " " + str(p))
         if p == y:
             total_correct += 1
     print(total_correct/np.float(len(x_test)))
-    '''
