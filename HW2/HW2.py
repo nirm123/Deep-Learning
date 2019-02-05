@@ -17,27 +17,32 @@ def loss(theta, x, y):
     return loss
 
 def reLU(vector):
-    ret = vector
-    for i in range(len(ret)):
-        if ret[i] > 0:
-            continue
-        else:
-            ret[i] = 0
-    return ret
+    return vector.clip(min=0)
 
-def gradient(x, y, soft):
-    dtheta = np.empty([5,10])
-    for i in range(5):
-        elem = np.random.randint(0, len(x))
-        x_cur = x[elem]
-        y_cur = y[elem]
-        for z in range(len(dtheta)):
-            softZ = soft[i][0][z]
+def reLU_prime(vector):
+    vector[vector > 0] = 1
+    return vector
+
+def gradient(x, y, theta):
+    elem = np.random.randint(0, len(x))
+    x_cur = x[elem]
+    y_cur = y[elem]
+    
+    output = forward(theta, x_cur)
+
+    dp_dU = np.empty(10)
+    for z in range(len(dp_dU)):
+            softZ = output[0][z]
             if z == y_cur:
-                dtheta[i][z] = -1*(1 - softZ)
+                dp_dU[z] = -1*(1 - softZ)
             else:
-                dtheta[i][z] = -1*(-softZ)
-    return  dtheta
+                dp_dU[z] = -1*(-softZ)
+    dp_db2 = dp_dU
+    dp_dC = np.matmul(dp_dU[:,None], output[2][:,None].T)
+    sigma = np.matmul(theta[0][1].T, dp_dU)
+    dp_db1 = np.multiply(sigma, reLU_prime(output[2])) 
+    dp_dW = np.matmul(dp_db1[:,None], x_cur[:,None].T)
+    return [dp_dW, dp_dC, dp_db1, dp_db2]
 
 def forward(weight, img):
     Z = np.add(np.matmul(weight[0][0], img), weight[1][0])
@@ -47,10 +52,6 @@ def forward(weight, img):
     return_object = [soft_res, Z, H, U]
     return return_object
 
-def shuffle(a,b):
-    assert len(a) == len(b)
-    p = np.random.permutation(len(a))
-    return a[p], b[p]
 
 if __name__ == "__main__":
     # Load MNIST data
@@ -69,18 +70,23 @@ if __name__ == "__main__":
     
     alpha = 0.01
     iteration = 0
-    epoch = 0  
-    
-    x_train, y_train = shuffle(x_train,y_train)
+    epoch = 0 
 
     # Training
     while True:
-        x_select = x_train[iteration:iteration+5]
-        y_select = y_train[iteration:iteration+5]
-        forward_output = [None] * 5
-        for i in range(5):
-            forward_output[i] = forward(theta, x_select[i])
-
+        grad = gradient(x_train, y_train, theta)
+        for i in range(4):
+            theta[int(i/2)][i%2] = theta[int(i/2)][i%2] - alpha * grad[i]
+        iteration += 1
+        print(iteration)
+        if iteration == 1000:
+            iteration = 0
+            epoch += 1
+            break
+    '''
+    # Training
+    while True:
+        grad = gradient(x_train, y_train, theta)
         dp_dU = gradient(x_select, y_select, forward_output)
         
         dp_db2 = np.sum(dp_dU)/5
@@ -117,6 +123,7 @@ if __name__ == "__main__":
             epoch += 1
             if epoch == 5:
                 break
+    '''
     '''
     L_prev = loss(weight, x_train, y_train)
     print(str(L_prev) + " 0")
