@@ -102,7 +102,7 @@ def test(x_given, y_given):
         p = np.argmax(forward(theta,x)[0])
         if p == y:
             total_correct += 1
-    print(total_correct/np.float(len(x_test)))
+    print('Test Accuracy: ' + str(total_correct/np.float(len(x_test))))
 
 # Main
 if __name__ == "__main__":
@@ -120,32 +120,35 @@ if __name__ == "__main__":
     kernel_dim = 4
     convolution_dim = np.sqrt(len(x_train[0])) + 1 - kernel_dim
     
-    K = np.random.uniform(-1,1,(num_channels, kernel_dim, kernel_dim))
-    W = np.random.uniform(-1,1,(num_channels, 10, convolution_dim.astype(int), convolution_dim.astype(int)))/np.sqrt(784)
-    b = np.random.uniform(-1,1,(10))
+    K = np.random.randn(num_channels, kernel_dim, kernel_dim)/np.sqrt(784)
+    W = np.random.randn(num_channels, 10, convolution_dim.astype(int), convolution_dim.astype(int))/np.sqrt(784)
+    b = np.random.randn(10)/np.sqrt(784)
     theta = [K, W, b]
 
     alpha = 0.01
     iteration = 0
-    epoch = 0
+    
+    epoch = 1
+    iteration_epoch = 20000
 
-    total_loss = 0
-    total_accuracy = 0
-
-    while True:
-        grad = gradient(x_train, y_train, theta)
-        for channel in range(3):
-            theta[0][channel] -= alpha * grad[0][channel]
-            theta[1][channel] -= alpha * grad[1][channel]
-        theta[2] -= alpha * grad[2]
-        iteration += 1
+    for i in range(epoch):
+        total_loss = 0
+        total_accuracy = 0
+        for j in range(iteration_epoch):
+            grad = gradient(x_train, y_train, theta)
+            for channel in range(3):
+                theta[0][channel] -= alpha * grad[0][channel]
+                theta[1][channel] -= alpha * grad[1][channel]
+            theta[2] -= alpha * grad[2]
         
-        total_loss += grad[3]
-        total_accuracy += grad[4]
+            total_loss += grad[3]
+            total_accuracy += grad[4]
 
-        if iteration % 100 == 0:
-            print('Average Loss: ' + str(total_loss/iteration))
-            print('Average Accuracy: ' + str(total_accuracy/iteration))
+            if j % 500 == 0 and j > 0:
+                print('Average Loss: ' + str(total_loss/j))
+                print('Average Accuracy: ' + str(total_accuracy/j) + '\n')
+                if j == 5000 == 0:
+                    alpha /= 10
 
     # Testing
-    #test(x_test, y_test)
+    test(x_test, y_test)
