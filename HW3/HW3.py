@@ -8,19 +8,8 @@ from random import randint
 # Function that calculates the softmax
 def softmax(input_v):
     input_vector = input_v.copy()
-    print(input_vector)
-    print()
     exp_vec = np.exp(input_vector)
     return np.divide(exp_vec, np.sum(exp_vec))
-
-# Function that calculates loss
-def loss(theta, x, y):
-    loss = 0
-    print("\nCalculating Loss:")
-    for i in range(len(x)):
-        soft = forward(theta, x[i])[0]
-        loss -= np.log(soft[y[i]])
-    return loss
 
 # Function that applies reLU to a vector
 def reLU(vec):
@@ -37,8 +26,6 @@ def reLU_prime(vec):
 # Function that calcuate the gradient for all parameters
 def gradient(x, y, theta):
     elem = np.random.randint(0, len(x))
-    #elem = 30807
-    print(elem)
     x_cur = x[elem]
     y_cur = y[elem]
     
@@ -57,26 +44,38 @@ def gradient(x, y, theta):
     dK_dU = np.zeros([3,4,4])
     dW_dU = np.zeros([3,10,25,25])
 
+    loss = -1 * np.log(output[0][y_cur])
+    if np.argmax(output[0]) == y_cur:
+        result = 1
+    else:
+        result = 0
+
     for i in range(3):
         for j in range(10):
             sigma[i] += dp_dU[j] * theta[1][i][j]
             dW_dU[i][j] = dp_dU[j] * output[2][i]
     for channel in range(3):
         dK_dU[channel] = convolution((reLU_prime(output[3][channel])*sigma[channel]),x_cur.reshape(28,28))
-    return [dK_dU,dW_dU,db_dU]
+    return [dK_dU,dW_dU,db_dU,loss,result]
 
 # Function that calculates forward pass of neural network
 def forward(weight, img):
-    Z = np.zeros([3,25,25])
-    H = np.zeros([3,25,25])
+    num_channels = len(weight[0])
+    kernel_dim = len(weight[0][0])
+    convolution_dim = len(weight[1][0][0])
+    img_dim = convolution_dim - 1 + kernel_dim
+
+    Z = np.zeros([num_channels, convolution_dim, convolution_dim])
+    H = np.zeros([num_channels, convolution_dim, convolution_dim])
     U = np.zeros([10])
-    for channel in range(3):
-        Z[channel] = convolution(weight[0][channel],img.reshape(28,28))
+    
+    for channel in range(num_channels):
+        Z[channel] = convolution(weight[0][channel],img.reshape(img_dim, img_dim))
     H = reLU(Z)
-    for channel in range(3):
+    for channel in range(num_channels):
         for k in range(10):
-            for i in range(25):
-                for j in range(25):
+            for i in range(convolution_dim):
+                for j in range(convolution_dim):
                     U[k] += weight[1][channel][k][i][j] * H[channel][i][j]
     soft_res = softmax(U)
 
@@ -85,7 +84,7 @@ def forward(weight, img):
 def convolution(array1, array2):
     kernel_size = len(array1)
     dim = len(array2) - kernel_size + 1
-    result = np.empty([dim,dim])
+    result = np.zeros([dim,dim])
     for i in range(dim):
         for j in range(dim):
             result[i][j] = np.sum(array1*array2[i:i+kernel_size,j:j+kernel_size])
@@ -115,31 +114,38 @@ if __name__ == "__main__":
     y_test = np.int32(np.array(MNIST['y_test'][:,0]))
 
     MNIST.close()
-
+    
     # Initialize variables
-    K = np.random.uniform(-1,1,(3,4,4))
-    W = np.random.uniform(-1,1,(3,10,25,25))
+    num_channels = 3
+    kernel_dim = 4
+    convolution_dim = np.sqrt(len(x_train[0])) + 1 - kernel_dim
+    
+    K = np.random.uniform(-1,1,(num_channels, kernel_dim, kernel_dim))
+    W = np.random.uniform(-1,1,(num_channels, 10, convolution_dim.astype(int), convolution_dim.astype(int)))/np.sqrt(784)
     b = np.random.uniform(-1,1,(10))
     theta = [K, W, b]
 
     alpha = 0.01
     iteration = 0
     epoch = 0
-    
+
+    total_loss = 0
+    total_accuracy = 0
+
     while True:
         grad = gradient(x_train, y_train, theta)
         for channel in range(3):
             theta[0][channel] -= alpha * grad[0][channel]
             theta[1][channel] -= alpha * grad[1][channel]
         theta[2] -= alpha * grad[2]
-
-        print(theta[0])
-        print(theta[1])
-        print(theta[2])
         iteration += 1
+        
+        total_loss += grad[3]
+        total_accuracy += grad[4]
+
         if iteration % 100 == 0:
-            print(iteration)
-        if iteration == 1000:
-            break
+            print('Average Loss: ' + str(total_loss/iteration))
+            print('Average Accuracy: ' + str(total_accuracy/iteration))
+
     # Testing
     #test(x_test, y_test)
