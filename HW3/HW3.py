@@ -40,9 +40,13 @@ def gradient(x, y, theta):
                 dp_dU[z] = -1*(-softZ)
     db_dU = dp_dU
 
-    sigma = np.zeros([3,25,25])
-    dK_dU = np.zeros([3,4,4])
-    dW_dU = np.zeros([3,10,25,25])
+    num_channels = len(theta[0])
+    kernel_dim = len(theta[0][0])
+    convolution_dim = len(theta[1][0][0])
+    
+    sigma = np.zeros([num_channels,convolution_dim,convolution_dim])
+    dK_dU = np.zeros([num_channels,kernel_dim,kernel_dim])
+    dW_dU = np.zeros([num_channels,10,convolution_dim,convolution_dim])
 
     loss = -1 * np.log(output[0][y_cur])
     if np.argmax(output[0]) == y_cur:
@@ -50,11 +54,11 @@ def gradient(x, y, theta):
     else:
         result = 0
 
-    for i in range(3):
+    for i in range(num_channels):
         for j in range(10):
             sigma[i] += dp_dU[j] * theta[1][i][j]
             dW_dU[i][j] = dp_dU[j] * output[2][i]
-    for channel in range(3):
+    for channel in range(num_channels):
         dK_dU[channel] = convolution((reLU_prime(output[3][channel])*sigma[channel]),x_cur.reshape(28,28))
     return [dK_dU,dW_dU,db_dU,loss,result]
 
@@ -116,7 +120,7 @@ if __name__ == "__main__":
     MNIST.close()
     
     # Initialize variables
-    num_channels = 3
+    num_channels = 10
     kernel_dim = 4
     convolution_dim = np.sqrt(len(x_train[0])) + 1 - kernel_dim
     
@@ -128,12 +132,14 @@ if __name__ == "__main__":
     alpha = 0.01
     iteration = 0
     
-    epoch = 1
+    epoch = 3
     iteration_epoch = 20000
+    total_loss = 0
+    total_accuracy = 0
 
     for i in range(epoch):
-        total_loss = 0
-        total_accuracy = 0
+        if i != 0:
+            alpha /= 10
         for j in range(iteration_epoch):
             grad = gradient(x_train, y_train, theta)
             for channel in range(3):
@@ -144,10 +150,18 @@ if __name__ == "__main__":
             total_loss += grad[3]
             total_accuracy += grad[4]
 
-            if j % 500 == 0 and j > 0:
-                print('Average Loss: ' + str(total_loss/j))
-                print('Average Accuracy: ' + str(total_accuracy/j) + '\n')
-                if j == 5000 == 0:
+            if j % 1000 == 0 and j > 0:
+                print(j + i * 20000)
+                if j % 5000 == 0:
+                    print('Average Loss: ' + str(total_loss/(5000)))
+                    print('Average Accuracy: ' + str(total_accuracy/(5000)) + '\n')
+                else:
+                    print('Average Loss: ' + str(total_loss/(j%5000)))
+                    print('Average Accuracy: ' + str(total_accuracy/(j%5000)) + '\n')
+                if j % 5000 == 0:
+                    total_loss = 0
+                    total_accuracy = 0
+                if j == 4000 and i == 0:
                     alpha /= 10
 
     # Testing
