@@ -120,8 +120,8 @@ if __name__ == "__main__":
     MNIST.close()
     
     # Initialize variables
-    num_channels = 10
-    kernel_dim = 4
+    num_channels = 15
+    kernel_dim = 3
     convolution_dim = np.sqrt(len(x_train[0])) + 1 - kernel_dim
     
     K = np.random.randn(num_channels, kernel_dim, kernel_dim)/np.sqrt(784)
@@ -130,16 +130,13 @@ if __name__ == "__main__":
     theta = [K, W, b]
 
     alpha = 0.01
-    iteration = 0
     
-    epoch = 3
+    epoch = 1
     iteration_epoch = 20000
-    total_loss = 0
-    total_accuracy = 0
 
     for i in range(epoch):
-        if i != 0:
-            alpha /= 10
+        total_loss = 0
+        total_accuracy = 0
         for j in range(iteration_epoch):
             grad = gradient(x_train, y_train, theta)
             for channel in range(3):
@@ -152,17 +149,9 @@ if __name__ == "__main__":
 
             if j % 1000 == 0 and j > 0:
                 print(j + i * 20000)
-                if j % 5000 == 0:
-                    print('Average Loss: ' + str(total_loss/(5000)))
-                    print('Average Accuracy: ' + str(total_accuracy/(5000)) + '\n')
-                else:
-                    print('Average Loss: ' + str(total_loss/(j%5000)))
-                    print('Average Accuracy: ' + str(total_accuracy/(j%5000)) + '\n')
-                if j % 5000 == 0:
-                    total_loss = 0
-                    total_accuracy = 0
-                if j == 4000 and i == 0:
-                    alpha /= 10
-
+                print('Average Loss: ' + str(total_loss/j))
+                print('Average Accuracy: ' + str(total_accuracy/j) + '\n')
+            if j == 10000 and i == 0:
+                alpha /= 10
     # Testing
     test(x_test, y_test)
