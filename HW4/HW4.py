@@ -16,14 +16,14 @@ import time
 import numpy as np
 
 # Hyper-parameters
-num_epochs = 100
-learning_rate = 0.0001
+num_epochs = 1
+learning_rate = 0.01
 batch_size = 128
 DIM = 32
 no_of_hidden_units = 196
 
 # Define Model
-class cifarModel(nn.module):
+class cifarModel(nn.Module):
     def __init__(self):
         super(cifarModel, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, 4, 1, 2)
@@ -33,14 +33,14 @@ class cifarModel(nn.module):
         self.pool1 = nn.MaxPool2d(2, 2)
         self.drop1 = nn.Dropout(0.2)
         
-        self.conv3 = nn.Conv2d(3, 64, 4, 1, 2)
+        self.conv3 = nn.Conv2d(64, 64, 4, 1, 2)
         self.norm2 = nn.BatchNorm2d(64)
-        self.conv4 = nn.Conv2d(64, 64, 4, 1, 2)
+        self.conv4 = nn.Conv2d(64, 64, 5, 1, 2)
         
         self.pool2 = nn.MaxPool2d(2, 2)
         self.drop2 = nn.Dropout(0.2)
 
-        self.conv5 = nn.Conv2d(3, 64, 4, 1, 2)
+        self.conv5 = nn.Conv2d(64, 64, 4, 1, 2)
         self.norm3 = nn.BatchNorm2d(64)
         self.conv6 = nn.Conv2d(64, 64, 3, 1)
 
@@ -53,7 +53,21 @@ class cifarModel(nn.module):
         self.norm5 = nn.BatchNorm2d(64)
         self.drop4 = nn.Dropout(0.2)
 
-        self.full1 = nn.Linear(
+        self.full1 = nn.Linear(4, 500)
+        self.full2 = nn.Linear(500, 250)
+        self.full3 = nn.Linear(250, 10)
+
+    def forward(self, x):
+        x = F.relu(self.conv2(self.norm1(F.relu(self.conv1(x)))))
+        x = self.drop1(self.pool1(x))
+        x = F.relu(self.conv4(self.norm2(F.relu(self.conv3(x)))))
+        x = self.drop2(self.pool2(x))
+        x = F.relu(self.conv6(self.norm3(F.relu(self.conv5(x)))))
+        x = self.drop3(x)
+        x = F.relu(self.conv8(self.norm4(F.relu(self.conv7(x)))))
+        x = self.drop4(self.norm5(x))
+        x = self.full3(self.full2(self.full1(x)))
+        return x
 
 # Data Augmentation
 transform_train = transforms.Compose([
@@ -83,18 +97,51 @@ trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuff
 testset = torchvision.datasets.CIFAR10(root='./', train=False, download=False, transform=transform_test)
 testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=8)
 
+use_gpu = torch.cuda.is_available()
+
+model = cifarModel()
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 start_time = time.time()
 
+loss = []
+accuracy = []
+
 # Train the model
-for epoch in range(0,num_epochs):
-
-
+for epoch in range(num_epochs):
     for batch_idx, (X_train_batch, Y_train_batch) in enumerate(trainloader):
-
         if(Y_train_batch.shape[0]<batch_size):
             continue
+        
+        if use_gpu:
+            X_train_batch = Variable(X_train_batch).cuda()
+            Y_train_batch = Variable(Y_train_batch).cuda()
+        
+        output = model(X_train_batch)
+        curr_loss = criterion(output, Y_train_batch)
+        loss.append(curr_loss.item())
 
-        X_train_batch = Variable(X_train_batch).cuda()
-        Y_train_batch = Variable(Y_train_batch).cuda()
+        optimizer.zero_grad()
+        curr_loss.backward()
+        optimizer.step()
 
+        _, predicted = torch.max(output.data, 1)
+        correct = (predicted == labels).sum().item()
+        accuracy.append(correct/labels.size(0))
+
+        if i % 100 == 0:
+            print('Epoch: ' + str(epoch+1) + '/' + str(num_epochs) + ', Step: ' + str(i+1) + '/' + str(len(trainloader)) + ', Loss: ' + str(curr_loss.item()) + ', Accuracy: ' + str(correct/labels.size(0)*100) + '%')
+
+# Test the model
+model.eval()
+with torch.no_grad():
+    correct = 0
+    total = 0
+    for X_test_batch, Y_test_batch in trainloader:
+        output = model(X_test_batch)
+        _, predicted = torch.max(output.data, 1)
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
+
+    print('Test Accuracy: ' + str((correct/total) * 100) + '%')
