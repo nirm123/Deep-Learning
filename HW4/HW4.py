@@ -16,7 +16,7 @@ import time
 import numpy as np
 
 # Hyper-parameters
-num_epochs = 1
+num_epochs = 30
 learning_rate = 0.01
 batch_size = 128
 DIM = 32
@@ -24,20 +24,20 @@ no_of_hidden_units = 196
 
 # Define Model
 class cifarModel(nn.Module):
-    def __init__(self): 
+    def __init__(self):
         super(cifarModel, self).__init__()
         # (w - k + 2p)/s + 1
         self.conv1 = nn.Conv2d(3, 32, 4, 1, 2) # (32 - 4 + 4)/1 + 1 = 33
         self.norm1 = nn.BatchNorm2d(32)
         self.conv2 = nn.Conv2d(32, 64, 4, 1, 2) # (32 - 4 + 4)/1 + 1 = 34
-        
+
         self.pool = nn.MaxPool2d(2, 2) # (32 - 0 + 0)/2 = 17
         self.drop1 = nn.Dropout(0.5)
-        
+
         self.conv3 = nn.Conv2d(64, 128, 4, 1, 2) # (17 - 4 + 4)/1 + 1 = 18
         self.norm2 = nn.BatchNorm2d(128)
         self.conv4 = nn.Conv2d(128, 256, 5, 1, 2) # (18 - 5 + 4)/1 + 1 = 18
-        
+
         # (self.pool1) (18 - 0 + 0)/2 = 9
         self.drop2 = nn.Dropout(0.5)
 
@@ -57,7 +57,7 @@ class cifarModel(nn.Module):
         self.full1 = nn.Linear(256 * 4 * 4, 1000)
         self.full2 = nn.Linear(1000, 500)
         self.full3 = nn.Linear(500, 10)
-
+    
     def forward(self, x):
         x = F.relu(self.conv2(self.norm1(F.relu(self.conv1(x)))))
         x = self.drop1(self.pool(x))
@@ -124,10 +124,10 @@ for epoch in range(num_epochs):
     for batch_idx, (X_train_batch, Y_train_batch) in enumerate(trainloader):
         if(Y_train_batch.shape[0]<batch_size):
             continue
-        
+
         X_train_batch = X_train_batch.to(device)
         Y_train_batch = Y_train_batch.to(device)
-        
+
         output = model(X_train_batch)
         curr_loss = criterion(output, Y_train_batch)
         loss.append(curr_loss.item())
@@ -141,6 +141,11 @@ for epoch in range(num_epochs):
         accuracy.append(correct/Y_train_batch.size(0))
         if batch_idx % 100 == 0:
             print('Epoch: ' + str(epoch+1) + '/' + str(num_epochs) + ', Step: ' + str(batch_idx+1) + '/' + str(len(trainloader)) + ', Loss: ' + str(curr_loss.item()) + ', Accuracy: ' + str(correct/Y_train_batch.size(0)*100) + '%')
+        for group in optimizer.param_groups:
+            for p in group['params']:
+                state = optimizer.state[p]
+                if('step' in state and state['step']>=1024):
+                    state['step'] = 1000
 
 # Test the model
 model.eval()
@@ -156,3 +161,4 @@ with torch.no_grad():
         correct += (predicted == Y_test_batch).sum().item()
 
     print('Test Accuracy: ' + str((correct/total) * 100) + '%')
+
