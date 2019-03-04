@@ -16,7 +16,7 @@ import time
 import numpy as np
 
 # Hyper-parameters
-num_epochs = 1
+num_epochs = 30
 learning_rate = 0.01
 batch_size = 128
 DIM = 32
@@ -26,47 +26,55 @@ no_of_hidden_units = 196
 class cifarModel(nn.Module):
     def __init__(self):
         super(cifarModel, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, 4, 1, 2)
-        self.norm1 = nn.BatchNorm2d(64)
-        self.conv2 = nn.Conv2d(64, 64, 4, 1, 2)
-        
-        self.pool1 = nn.MaxPool2d(2, 2)
-        self.drop1 = nn.Dropout(0.2)
-        
-        self.conv3 = nn.Conv2d(64, 64, 4, 1, 2)
-        self.norm2 = nn.BatchNorm2d(64)
-        self.conv4 = nn.Conv2d(64, 64, 5, 1, 2)
-        
-        self.pool2 = nn.MaxPool2d(2, 2)
-        self.drop2 = nn.Dropout(0.2)
+        # (w - k + 2p)/s + 1
+        self.conv1 = nn.Conv2d(3, 32, 4, 1, 2) # (32 - 4 + 4)/1 + 1 = 33
+        self.norm1 = nn.BatchNorm2d(32)
+        self.conv2 = nn.Conv2d(32, 64, 4, 1, 2) # (32 - 4 + 4)/1 + 1 = 34
 
-        self.conv5 = nn.Conv2d(64, 64, 4, 1, 2)
-        self.norm3 = nn.BatchNorm2d(64)
-        self.conv6 = nn.Conv2d(64, 64, 3, 1)
+        self.pool = nn.MaxPool2d(2, 2) # (32 - 0 + 0)/2 = 17
+        self.drop1 = nn.Dropout(0.5)
 
-        self.drop3 = nn.Dropout(0.2)
+        self.conv3 = nn.Conv2d(64, 128, 4, 1, 2) # (17 - 4 + 4)/1 + 1 = 18
+        self.norm2 = nn.BatchNorm2d(128)
+        self.conv4 = nn.Conv2d(128, 256, 5, 1, 2) # (18 - 5 + 4)/1 + 1 = 18
 
-        self.conv7 = nn.Conv2d(64, 64, 3, 1)
-        self.norm4 = nn.BatchNorm2d(64)
-        self.conv8 = nn.Conv2d(64, 64, 3, 1)
+        # (self.pool1) (18 - 0 + 0)/2 = 9
+        self.drop2 = nn.Dropout(0.5)
 
-        self.norm5 = nn.BatchNorm2d(64)
-        self.drop4 = nn.Dropout(0.2)
+        self.conv5 = nn.Conv2d(256, 256, 4, 1, 2) # (9 - 4 + 4)/1 + 1 = 10
+        self.norm3 = nn.BatchNorm2d(256)
+        self.conv6 = nn.Conv2d(256, 256, 3, 1) # (10 - 3 + 0)/1 + 1 = 8
 
-        self.full1 = nn.Linear(4, 500)
-        self.full2 = nn.Linear(500, 250)
-        self.full3 = nn.Linear(250, 10)
+        self.drop3 = nn.Dropout(0.5)
 
+        self.conv7 = nn.Conv2d(256, 256, 3, 1) # (8 - 3 + 0)/1 + 1 = 6
+        self.norm4 = nn.BatchNorm2d(256)
+        self.conv8 = nn.Conv2d(256, 256, 3, 1) # (8 - 3 + 0)/1 + 1 = 4
+
+        self.norm5 = nn.BatchNorm2d(256)
+        self.drop4 = nn.Dropout(0.5)
+
+        self.full1 = nn.Linear(256 * 4 * 4, 1000)
+        self.full2 = nn.Linear(1000, 500)
+        self.full3 = nn.Linear(500, 10)
+    
     def forward(self, x):
         x = F.relu(self.conv2(self.norm1(F.relu(self.conv1(x)))))
-        x = self.drop1(self.pool1(x))
+        x = self.drop1(self.pool(x))
+
         x = F.relu(self.conv4(self.norm2(F.relu(self.conv3(x)))))
-        x = self.drop2(self.pool2(x))
-        x = F.relu(self.conv6(self.norm3(F.relu(self.conv5(x)))))
-        x = self.drop3(x)
+        x = self.drop2(self.pool(x))
+
+        x = self.drop3(F.relu(self.conv6(self.norm3(F.relu(self.conv5(x))))))
+
         x = F.relu(self.conv8(self.norm4(F.relu(self.conv7(x)))))
+
         x = self.drop4(self.norm5(x))
-        x = self.full3(self.full2(self.full1(x)))
+
+        x = x.view(-1, 256 * 4 * 4)
+        x = F.relu(self.full1(x))
+        x = F.relu(self.full2(x))
+        x = self.full3(x)
         return x
 
 # Data Augmentation
@@ -97,9 +105,10 @@ trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuff
 testset = torchvision.datasets.CIFAR10(root='./', train=False, download=False, transform=transform_test)
 testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=8)
 
-use_gpu = torch.cuda.is_available()
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 model = cifarModel()
+model.to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -108,16 +117,17 @@ start_time = time.time()
 loss = []
 accuracy = []
 
+model.train()
+
 # Train the model
 for epoch in range(num_epochs):
     for batch_idx, (X_train_batch, Y_train_batch) in enumerate(trainloader):
         if(Y_train_batch.shape[0]<batch_size):
             continue
-        
-        if use_gpu:
-            X_train_batch = Variable(X_train_batch).cuda()
-            Y_train_batch = Variable(Y_train_batch).cuda()
-        
+
+        X_train_batch = X_train_batch.to(device)
+        Y_train_batch = Y_train_batch.to(device)
+
         output = model(X_train_batch)
         curr_loss = criterion(output, Y_train_batch)
         loss.append(curr_loss.item())
@@ -127,11 +137,15 @@ for epoch in range(num_epochs):
         optimizer.step()
 
         _, predicted = torch.max(output.data, 1)
-        correct = (predicted == labels).sum().item()
-        accuracy.append(correct/labels.size(0))
-
-        if i % 100 == 0:
-            print('Epoch: ' + str(epoch+1) + '/' + str(num_epochs) + ', Step: ' + str(i+1) + '/' + str(len(trainloader)) + ', Loss: ' + str(curr_loss.item()) + ', Accuracy: ' + str(correct/labels.size(0)*100) + '%')
+        correct = (predicted == Y_train_batch).sum().item()
+        accuracy.append(correct/Y_train_batch.size(0))
+        if batch_idx % 100 == 0:
+            print('Epoch: ' + str(epoch+1) + '/' + str(num_epochs) + ', Step: ' + str(batch_idx+1) + '/' + str(len(trainloader)) + ', Loss: ' + str(curr_loss.item()) + ', Accuracy: ' + str(correct/Y_train_batch.size(0)*100) + '%')
+        for group in optimizer.param_groups:
+            for p in group['params']:
+                state = optimizer.state[p]
+                if('step' in state and state['step']>=1024):
+                    state['step'] = 1000
 
 # Test the model
 model.eval()
@@ -139,9 +153,12 @@ with torch.no_grad():
     correct = 0
     total = 0
     for X_test_batch, Y_test_batch in trainloader:
+        X_test_batch = X_test_batch.to(device)
+        Y_test_batch = Y_test_batch.to(device)
         output = model(X_test_batch)
         _, predicted = torch.max(output.data, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
+        total += Y_test_batch.size(0)
+        correct += (predicted == Y_test_batch).sum().item()
 
     print('Test Accuracy: ' + str((correct/total) * 100) + '%')
+
