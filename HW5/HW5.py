@@ -22,6 +22,7 @@ batch_size = 128
 DIM = 32
 no_of_hidden_units = 196
 
+# Define basic block for residual network
 class basic_block(nn.Module):
     def __init__(self, in_channel, out_channel):
         super(basic_block, self).__init__()
@@ -61,18 +62,23 @@ class resNet_cifar100(nn.Module):
         self.conv1 = nn.Conv2d(3, 32, 3, 1, 1) # (32 - 3 + 2)/1 + 1 = 32
         self.norm1 = nn.BatchNorm2d(32)
         self.drop1 = nn.Dropout(0.5)
+        
         self.conv2_1 = basic_block(32, 32)
         self.conv2_2 = basic_block(32, 32)
+        
         self.conv3_1 = basic_block(32, 64)
         self.conv3_2 = basic_block(64, 64)
         self.conv3_3 = basic_block(64, 64)
         self.conv3_4 = basic_block(64, 64)
+        
         self.conv4_1 = basic_block(64, 128)
         self.conv4_2 = basic_block(128, 128)
         self.conv4_3 = basic_block(128, 128)
         self.conv4_4 = basic_block(128, 128)
+        
         self.conv5_1 = basic_block(128, 256)
         self.conv5_2 = basic_block(256, 256)
+        
         self.pool = nn.MaxPool2d(4, 4)
         self.full = nn.Linear(256, 100)
 
