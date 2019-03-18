@@ -16,7 +16,7 @@ import time
 import numpy as np
 
 # Hyper-parameters
-num_epochs = 1
+num_epochs = 20
 learning_rate = 0.001#0.0001#/10.0
 batch_size = 128
 DIM = 32
@@ -113,10 +113,11 @@ transform_test = transforms.Compose([
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
 ])
 
-trainset = torchvision.datasets.CIFAR100(root='./', train=True, download=True, transform=transform_train)
+trainset = torchvision.datasets.CIFAR100(root='/projects/training/bawc/CIFAR100/Dataset', train=True, download=True, transform=transform_train)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=8)
 
-testset = torchvision.datasets.CIFAR100(root='./', train=False, download=False, transform=transform_test)
+
+testset = torchvision.datasets.CIFAR100(root='/projects/training/bawc/CIFAR100/Dataset', train=False, download=False, transform=transform_test)
 testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=8)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
