@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import torchvision.datasets as datasets
 import torchvision
 import torchvision.transforms as transforms
+import torchvision.models as models
 
 from torch.autograd import Variable
 
@@ -16,85 +17,13 @@ import time
 import numpy as np
 
 # Hyper-parameters
-num_epochs = 40
-learning_rate = 0.001#0.0001#/10.0
+num_epochs = 20
+learning_rate = 0.001
 batch_size = 128
-DIM = 32
+DIM = 224
 no_of_hidden_units = 196
 
-
-# Define basic block for residual network
-class basic_block(nn.Module):
-    def __init__(self, in_channel, out_channel):
-        super(basic_block, self).__init__()
-        self.down = nn.Conv2d(in_channel, out_channel, 1, 2)
-
-        self.down_flag = False
-        cur_stride = 1
-        if in_channel != out_channel:
-            self.down_flag = True
-            cur_stride = 2
-
-        self.conv1 = nn.Conv2d(in_channel, out_channel, 3, cur_stride, 1)
-        self.norm1 = nn.BatchNorm2d(out_channel)
-        self.conv2 = nn.Conv2d(out_channel, out_channel, 3, 1, 1)
-        self.norm2 = nn.BatchNorm2d(out_channel)
-
-    def forward(self, x):
-        orig_x = x
-        if self.down_flag:
-            orig_x = self.down(orig_x)
-
-        x = F.relu(self.norm1(self.conv1(x)))
-        x = self.norm2(self.conv2(x))
-
-        x += orig_x
-
-        x = F.relu(x)
-
-        return x
-
-
-# Define Model
-class resNet_cifar100(nn.Module):
-    def __init__(self):
-        super(resNet_cifar100, self).__init__()
-        # (w - k + 2p)/s + 1
-        self.conv1 = nn.Conv2d(3, 32, 3, 1, 1) # (32 - 3 + 2)/1 + 1 = 32
-        self.norm1 = nn.BatchNorm2d(32)
-        self.drop1 = nn.Dropout(0.5)
-
-        self.conv2_1 = basic_block(32, 32)
-        self.conv2_2 = basic_block(32, 32)
-
-        self.conv3_1 = basic_block(32, 64)
-        self.conv3_2 = basic_block(64, 64)
-        self.conv3_3 = basic_block(64, 64)
-        self.conv3_4 = basic_block(64, 64)
-
-        self.conv4_1 = basic_block(64, 128)
-        self.conv4_2 = basic_block(128, 128)
-        self.conv4_3 = basic_block(128, 128)
-        self.conv4_4 = basic_block(128, 128)
-
-        self.conv5_1 = basic_block(128, 256)
-        self.conv5_2 = basic_block(256, 256)
-
-        self.pool = nn.MaxPool2d(4, 4)
-        self.full = nn.Linear(256, 100)
-
-    def forward(self, x):
-        x = self.drop1(F.relu(self.norm1(self.conv1(x))))
-        x = self.conv2_2(self.conv2_1(x))
-        x = self.conv3_4(self.conv3_3(self.conv3_2(self.conv3_1(x))))
-        x = self.conv4_4(self.conv4_3(self.conv4_2(self.conv4_1(x))))
-        x = self.conv5_2(self.conv5_1(x))
-        x = self.pool(x)
-        x = x.view(-1, 256)
-        x = self.full(x)
-        return x
-
-
+# Data Augmentation
 transform_train = transforms.Compose([
     transforms.RandomResizedCrop(DIM, scale=(0.7, 1.0), ratio=(1.0,1.0)),
     transforms.ColorJitter(
@@ -104,27 +33,34 @@ transform_train = transforms.Compose([
             hue=0.1*torch.randn(1)),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
-    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
 ])
 
+# Test Set Standardization
 transform_test = transforms.Compose([
     transforms.CenterCrop(DIM),
     transforms.ToTensor(),
-    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
 ])
 
-trainset = torchvision.datasets.CIFAR100(root='/projects/training/bawc/CIFAR100/Dataset', train=True, download=True, transform=transform_train)
+# Load Training Data
+trainset = torchvision.datasets.CIFAR100(root='./', train=True, download=True, transform=transform_train)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=8)
 
-
-testset = torchvision.datasets.CIFAR100(root='/projects/training/bawc/CIFAR100/Dataset', train=False, download=False, transform=transform_test)
+# Load Testing Data
+testset = torchvision.datasets.CIFAR100(root='./', train=False, download=False, transform=transform_test)
 testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=8)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model = resNet_cifar100()
+
+model = models.resnet18(pretrained=True)
+model.fc = nn.Linear(512, 100)
+
 model.to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
+
+params = list(model.layer4.parameters()) + list(model.fc.parameters())
+optimizer = torch.optim.Adam(params, lr=learning_rate)
 
 start_time = time.time()
 
@@ -134,20 +70,22 @@ accuracy = []
 model.train()
 
 # Train the model
-for epoch in range(0,num_epochs):
-    if epoch == 16:
-        learning_rate /= 10
-    if epoch == 31:
-        learning_rate /= 10
+for epoch in range(num_epochs):
     for batch_idx, (X_train_batch, Y_train_batch) in enumerate(trainloader):
-
         if(Y_train_batch.shape[0]<batch_size):
             continue
 
-        X_train_batch = Variable(X_train_batch).to(device)
-        Y_train_batch = Variable(Y_train_batch).to(device)
+        X_train_batch = X_train_batch.to(device)
+        Y_train_batch = Y_train_batch.to(device)
 
-        output = model(X_train_batch)
+        with torch.no_grad():
+            h = model.conv1(X_train_batch)
+            h = model.layer3(model.layer2(model.layer1(model.maxpool(model.relu(model.bn1(h))))))
+        h = model.layer4(h)
+        h = model.avgpool(h)
+        h = h.view(h.size(0), -1)
+        output = model.fc(h)
+
         curr_loss = criterion(output, Y_train_batch)
         loss.append(curr_loss.item())
 
@@ -158,7 +96,7 @@ for epoch in range(0,num_epochs):
         predicted = F.softmax(output, dim = 1)
         predicted = predicted.data.max(1)[1]
         acc = float(predicted.eq(Y_train_batch.data).sum())
-        #los = curr_loss.item()
+
         #_, predicted = torch.max(output.data, 1)
         #correct = (predicted == Y_train_batch).sum().item()
         accuracy.append(acc/Y_train_batch.size(0))
@@ -169,7 +107,6 @@ for epoch in range(0,num_epochs):
                 state = optimizer.state[p]
                 if('step' in state and state['step']>=1024):
                     state['step'] = 1000
-
 # Test model
 total_acc = 0.0
 total_loss = 0.0
@@ -196,4 +133,3 @@ elapsed = end_time - start_time
 
 print("TEST ACCURACY:  " + str(total_acc*100.0) + "%\nTEST LOSS: " + str(total_loss))
 print("TIME: " + str(elapsed/60))
-
