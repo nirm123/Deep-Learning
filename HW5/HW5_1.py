@@ -16,7 +16,7 @@ import time
 import numpy as np
 
 # Hyper-parameters
-num_epochs = 1
+num_epochs = 0
 learning_rate = 0.001#0.0001#/10.0
 batch_size = 128
 DIM = 32
@@ -150,11 +150,15 @@ for epoch in range(0,num_epochs):
         curr_loss.backward()
         optimizer.step()
 
-        _, predicted = torch.max(output.data, 1)
-        correct = (predicted == Y_train_batch).sum().item()
-        accuracy.append(correct/Y_train_batch.size(0))
+        predicted = F.softmax(output, dim = 1)
+        predicted = predicted.data.max(1)[1]
+        acc = float(pred.eq(Y_train_batch.data).sum())
+        #los = curr_loss.item()
+        #_, predicted = torch.max(output.data, 1)
+        #correct = (predicted == Y_train_batch).sum().item()
+        #accuracy.append(correct/Y_train_batch.size(0))
         if batch_idx % 100 == 0:
-            print('Epoch: ' + str(epoch+1) + '/' + str(num_epochs) + ', Step: ' + str(batch_idx+1) + '/' + str(len(trainloader)) + ', Loss: ' + str(curr_loss.item()) + ', Accuracy: ' + str(correct/Y_train_batch.size(0)*100) + '%')
+            print('Epoch: ' + str(epoch+1) + '/' + str(num_epochs) + ', Step: ' + str(batch_idx+1) + '/' + str(len(trainloader)) + ', Loss: ' + str(curr_loss.item()) + ', Accuracy: ' + str(acc/Y_train_batch.size(0)*100) + '%')
         for group in optimizer.param_groups:
             for p in group['params']:
                 state = optimizer.state[p]
@@ -186,6 +190,6 @@ end_time = time.time()
 elapsed = end_time - start_time
 
 
-print("TEST (Accuracy/Loss):  ", "%.2f" % (total_acc*100.0), "%.4f" % total_loss)
+print("TEST ACCURACY:  " + str(total_acc*100.0) + "%\nTEST LOSS: " + str(total_loss))
 print("TIME: " + str(elapsed/60))
 
