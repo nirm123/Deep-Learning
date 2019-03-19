@@ -16,8 +16,7 @@ import time
 import numpy as np
 
 # Hyper-parameters
-num_epochs = 20
-num_epochs = 0
+num_epochs = 40
 learning_rate = 0.001#0.0001#/10.0
 batch_size = 128
 DIM = 32
@@ -136,6 +135,10 @@ model.train()
 
 # Train the model
 for epoch in range(0,num_epochs):
+    if epoch == 16:
+        learning_rate /= 10
+    if epoch == 31:
+        learning_rate /= 10
     for batch_idx, (X_train_batch, Y_train_batch) in enumerate(trainloader):
 
         if(Y_train_batch.shape[0]<batch_size):
@@ -154,7 +157,7 @@ for epoch in range(0,num_epochs):
 
         predicted = F.softmax(output, dim = 1)
         predicted = predicted.data.max(1)[1]
-        acc = float(pred.eq(Y_train_batch.data).sum())
+        acc = float(predicted.eq(Y_train_batch.data).sum())
         #los = curr_loss.item()
         #_, predicted = torch.max(output.data, 1)
         #correct = (predicted == Y_train_batch).sum().item()
