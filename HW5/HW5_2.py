@@ -44,11 +44,11 @@ transform_test = transforms.Compose([
 ])
 
 # Load Training Data
-trainset = torchvision.datasets.CIFAR100(root='./', train=True, download=True, transform=transform_train)
+trainset = torchvision.datasets.CIFAR100(root='/projects/training/bawc/CIFAR100/Dataset', train=True, download=True, transform=transform_train)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=8)
 
 # Load Testing Data
-testset = torchvision.datasets.CIFAR100(root='./', train=False, download=False, transform=transform_test)
+testset = torchvision.datasets.CIFAR100(root='/projects/training/bawc/CIFAR100/Dataset', train=False, download=False, transform=transform_test)
 testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=8)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -71,6 +71,8 @@ model.train()
 
 # Train the model
 for epoch in range(num_epochs):
+    if epoch == 11:
+        learning_rate /= 10
     for batch_idx, (X_train_batch, Y_train_batch) in enumerate(trainloader):
         if(Y_train_batch.shape[0]<batch_size):
             continue
@@ -112,6 +114,33 @@ total_acc = 0.0
 total_loss = 0.0
 total_num = 0
 batch_size = 0
+for X_test_batch, Y_test_batch in testloader:
+    batch_size = Y_test_batch.size(0)
+    with torch.no_grad():
+        data, target = Variable(X_test_batch).to(device), Variable(Y_test_batch).to(device)
+        out = model(data)
+        loss = criterion(out, target)
+        pred = F.softmax(out, dim = 1)
+        pred = pred.data.max(1)[1]
+        total_acc += float(pred.eq(target.data).sum())
+        total_loss += loss.item()
+        total_num += batch_size
+total_acc /= total_num
+total_loss /= (total_num/batch_size)
+
+end_time = time.time()
+elapsed = end_time - start_time
+
+
+print("TEST ACCURACY:  " + str(total_acc*100.0) + "%\nTEST LOSS: " + str(total_loss))
+print("TIME: " + str(elapsed/60))
+print("\n\n\n" + str(total_acc*total_num) + " " + str(total_num))
+
+# Test model
+total_acc = 0.0
+total_loss = 0.0
+total_num = 0
+batch_size = 0
 model.eval()
 for X_test_batch, Y_test_batch in testloader:
     batch_size = Y_test_batch.size(0)
@@ -133,3 +162,4 @@ elapsed = end_time - start_time
 
 print("TEST ACCURACY:  " + str(total_acc*100.0) + "%\nTEST LOSS: " + str(total_loss))
 print("TIME: " + str(elapsed/60))
+print("\n\n\n" + str(total_acc*total_num) + " " + str(total_num))
