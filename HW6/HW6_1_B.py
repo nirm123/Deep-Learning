@@ -23,7 +23,7 @@ import sys
 
 # Hyper paramaters
 batch_size = 128
-num_epochs = 100
+num_epochs = 200
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Define Discriminator
@@ -86,31 +86,31 @@ class generator(nn.Module):
         self.fc1 = nn.Linear(100, 196*4*4)
         
         self.conv1 = nn.ConvTranspose2d(196, 196, 4, 2, 1)
-        self.norm1 = nn.BatchNorm2d(8)
+        self.norm1 = nn.BatchNorm2d(196)
 
         self.conv2 = nn.Conv2d(196, 196, 3, 1, 1)
-        self.norm2 = nn.BatchNorm2d(8)
+        self.norm2 = nn.BatchNorm2d(196)
 
         self.conv3 = nn.Conv2d(196, 196, 3, 1, 1)
-        self.norm3 = nn.BatchNorm2d(8)
+        self.norm3 = nn.BatchNorm2d(196)
 
         self.conv4 = nn.Conv2d(196, 196, 3, 1, 1)
-        self.norm4 = nn.BatchNorm2d(8)
+        self.norm4 = nn.BatchNorm2d(196)
 
         self.conv5 = nn.ConvTranspose2d(196, 196, 4, 2, 1)
-        self.norm5 = nn.BatchNorm2d(16)
+        self.norm5 = nn.BatchNorm2d(196)
 
         self.conv6 = nn.Conv2d(196, 196, 3, 1, 1)
-        self.norm6 = nn.BatchNorm2d(16)
+        self.norm6 = nn.BatchNorm2d(196)
 
         self.conv7 = nn.ConvTranspose2d(196, 196, 4, 2, 1)
-        self.norm7 = nn.BatchNorm2d(32)
+        self.norm7 = nn.BatchNorm2d(196)
 
         self.conv8 = nn.Conv2d(196, 3, 3, 1, 1)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
-        x = x.view(4, 4, 196)
+        x = x.view(x.shape[0], 196, 4, 4)
         x = F.relu(self.norm1(self.conv1(x)))
         x = F.relu(self.norm2(self.conv2(x)))
         x = F.relu(self.norm3(self.conv3(x)))
@@ -118,7 +118,7 @@ class generator(nn.Module):
         x = F.relu(self.norm5(self.conv5(x)))
         x = F.relu(self.norm6(self.conv6(x)))
         x = F.relu(self.norm7(self.conv7(x)))
-        x = F.tanh(self.conv8(x))
+        x = torch.tanh(self.conv8(x))
 
         return x
 
@@ -139,7 +139,7 @@ def calc_gradient_penalty(netD, real_data, fake_data):
     disc_interpolates, _ = netD(interpolates)
     disc_interpolates = disc_interpolates[1]
 
-    gradients = autograd.grad(outputs=disc_interpolates, inputs=interpolates,
+    gradients = torch.autograd.grad(outputs=disc_interpolates, inputs=interpolates,
                               grad_outputs=torch.ones(disc_interpolates.size()).to(device),
                               create_graph=True, retain_graph=True, only_inputs=True)[0]
 
@@ -230,7 +230,6 @@ for epoch in range(num_epochs):
     aD.train()
     for batch_idx, (X_train_batch, Y_train_batch) in enumerate(trainloader):
 
-        print("START!")
         if(Y_train_batch.shape[0] < batch_size):
             continue
 
@@ -263,7 +262,6 @@ for epoch in range(num_epochs):
             gen_cost.backward()
 
             optimizer_g.step()
-        print("FINISH G!")
 
         # train D
         for p in aD.parameters():
@@ -312,5 +310,62 @@ for epoch in range(num_epochs):
 
         optimizer_d.step()
         
-        print("YES!")
-    
+        # within the training loop
+        loss1.append(gradient_penalty.item())
+        loss2.append(disc_fake_source.item())
+        loss3.append(disc_real_source.item())
+        loss4.append(disc_real_class.item())
+        loss5.append(disc_fake_class.item())
+        acc1.append(accuracy)
+        if((batch_idx%50)==0):
+            print(epoch, batch_idx, "%.2f" % np.mean(loss1), 
+                                    "%.2f" % np.mean(loss2), 
+                                    "%.2f" % np.mean(loss3), 
+                                    "%.2f" % np.mean(loss4), 
+                                    "%.2f" % np.mean(loss5), 
+                                    "%.2f" % np.mean(acc1))
+
+        # Clear variables for ADAM in bluewaters
+        for group in optimizer.param_groups:
+            for p in group['params']:
+                state = optimizer.state[p]
+                if('step' in state and state['step']>=1024):
+                    state['step'] = 1000
+
+    # Test the model
+    aD.eval()
+    with torch.no_grad():
+        test_accu = []
+        for batch_idx, (X_test_batch, Y_test_batch) in enumerate(testloader):
+            X_test_batch, Y_test_batch= Variable(X_test_batch).to(device),Variable(Y_test_batch).to(device)
+
+            with torch.no_grad():
+                output = aD(X_test_batch)
+
+            prediction = output[0].data.max(1)[1] # first column has actual prob.
+            accuracy = ( float( prediction.eq(Y_test_batch.data).sum() ) /float(batch_size))*100.0
+            test_accu.append(accuracy)
+            accuracy_test = np.mean(test_accu)
+    print('Testing',accuracy_test, time.time()-start_time)
+    aD.train()
+
+    ### save output
+    with torch.no_grad():
+        aG.eval()
+        samples = aG(save_noise)
+        samples = samples.data.cpu().numpy()
+        samples += 1.0
+        samples /= 2.0
+        samples = samples.transpose(0,2,3,1)
+        aG.train()
+
+    fig = plot(samples)
+    plt.savefig('%s.png' % str(epoch).zfill(3), bbox_inches='tight')
+    plt.close(fig)
+
+    if(((epoch+1)%1)==0):
+        torch.save(aG,'tempG.model')
+        torch.save(aD,'tempD.model')
+
+torch.save(aG,'generator.model')
+torch.save(aD,'discriminator.model')
