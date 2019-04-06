@@ -92,13 +92,13 @@ class generator(nn.Module):
     def forward(self, x):
         x = self.fc1(x)
         x = x.view(-1, 128, 4, 4)
-        x = F.relu(self.norm1(self.conv1(x))
-        x = F.relu(self.norm2(self.conv2(x))
-        x = F.relu(self.norm3(self.conv3(x))
-        x = F.relu(self.norm4(self.conv4(x))
-        x = F.relu(self.norm5(self.conv5(x))
-        x = F.relu(self.norm6(self.conv6(x))
-        x = F.relu(self.norm7(self.conv7(x))
+        x = F.relu(self.norm1(self.conv1(x)))
+        x = F.relu(self.norm2(self.conv2(x)))
+        x = F.relu(self.norm3(self.conv3(x)))
+        x = F.relu(self.norm4(self.conv4(x)))
+        x = F.relu(self.norm5(self.conv5(x)))
+        x = F.relu(self.norm6(self.conv6(x)))
+        x = F.relu(self.norm7(self.conv7(x)))
         x = self.tanh(self.conv8(x))
 
         return x
@@ -302,6 +302,12 @@ for epoch in range(0,num_epochs):
                                     "%.2f" % np.mean(loss4), 
                                     "%.2f" % np.mean(loss5), 
                                     "%.2f" % np.mean(acc1))
+        # Clear ADAM parameters for bluewaters
+        for group in optimizer.param_groups:
+            for p in group['params']:
+                state = optimizer.state[p]
+                if('step' in state and state['step']>=1024):
+                    state['step'] = 1000
 
     # Test the model
     aD.eval()
