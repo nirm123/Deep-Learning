@@ -22,7 +22,7 @@ batch_size = 128
 # Define Discriminator
 class discriminator(nn.Module):
     def __init__(self):
-        super(resNet_cifar100, self).__init__()
+        super(discriminator, self).__init__()
         self.conv1 = nn.Conv2d(3, 128, 3, 1, 1)
         self.conv2 = nn.Conv2d(128, 128, 3, 2, 1)
         self.conv3 = nn.Conv2d(128, 128, 3, 1, 1)
@@ -61,7 +61,7 @@ class discriminator(nn.Module):
 # Define Generator
 class generator(nn.Module):
     def __init__(self):
-        super(resNet_cifar100, self).__init__()
+        super(generator, self).__init__()
         self.fc1 = nn.Linear(100, 128*4*4)
 
         self.conv1 = nn.ConvTranspose2d(128, 128, 4, 2, 1)
@@ -86,13 +86,13 @@ class generator(nn.Module):
     def forward(self, x):
         x = self.fc1(x)
         x = x.view(-1, 128, 4, 4)
-        x = F.relu(self.norm1(self.conv1(x))
-        x = F.relu(self.norm2(self.conv2(x))
-        x = F.relu(self.norm3(self.conv3(x))
-        x = F.relu(self.norm4(self.conv4(x))
-        x = F.relu(self.norm5(self.conv5(x))
-        x = F.relu(self.norm6(self.conv6(x))
-        x = F.relu(self.norm7(self.conv7(x))
+        x = F.relu(self.norm1(self.conv1(x)))
+        x = F.relu(self.norm2(self.conv2(x)))
+        x = F.relu(self.norm3(self.conv3(x)))
+        x = F.relu(self.norm4(self.conv4(x)))
+        x = F.relu(self.norm5(self.conv5(x)))
+        x = F.relu(self.norm6(self.conv6(x)))
+        x = F.relu(self.norm7(self.conv7(x)))
         x = self.tanh(self.conv8(x))
 
         return x
@@ -154,8 +154,8 @@ for epoch in range(0,num_epochs):
         for group in optimizer.param_groups:
             for p in group['params']:
                 state = optimizer.state[p]
-                    if('step' in state and state['step']>=1024):
-                        state['step'] = 1000
+                if('step' in state and state['step']>=1024):
+                    state['step'] = 1000
 
 torch.save(model,'cifar10.model')
 

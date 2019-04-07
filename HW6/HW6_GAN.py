@@ -22,13 +22,15 @@ import matplotlib.gridspec as gridspec
 
 # Hyper-parameters
 num_epochs = 400
-batch_size = 100
+batch_size = 128
 gen_train = 1
+n_z = 100
+n_classes = 10
 
 # Define Discriminator
 class discriminator(nn.Module):
     def __init__(self):
-        super(resNet_cifar100, self).__init__()
+        super(discriminator, self).__init__()
         self.conv1 = nn.Conv2d(3, 128, 3, 1, 1)
         self.conv2 = nn.Conv2d(128, 128, 3, 2, 1)
         self.conv3 = nn.Conv2d(128, 128, 3, 1, 1)
@@ -67,7 +69,7 @@ class discriminator(nn.Module):
 # Define Generator
 class generator(nn.Module):
     def __init__(self):
-        super(resNet_cifar100, self).__init__()
+        super(generator, self).__init__()
         self.fc1 = nn.Linear(100, 128*4*4)
 
         self.conv1 = nn.ConvTranspose2d(128, 128, 4, 2, 1)
@@ -91,7 +93,7 @@ class generator(nn.Module):
 
     def forward(self, x):
         x = self.fc1(x)
-        x = x.view(-1, 128, 4, 4)
+        x = x.view(x.shape[0], 128, 4, 4)
         x = F.relu(self.norm1(self.conv1(x)))
         x = F.relu(self.norm2(self.conv2(x)))
         x = F.relu(self.norm3(self.conv3(x)))
