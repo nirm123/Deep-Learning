@@ -61,7 +61,7 @@ class discriminator(nn.Module):
         x = F.leaky_relu(self.norm5(self.conv5(x)))
         x = F.leaky_relu(self.norm6(self.conv6(x)))
         x = F.leaky_relu(self.norm7(self.conv7(x)))
-        x = F.leaky_relu(self.norm8(self.conv8(x)))
+        x = self.pool1(F.leaky_relu(self.norm8(self.conv8(x))))
         x = x.view(-1, 128)
         
         return [self.fc1(x), self.fc10(x)]
@@ -81,20 +81,21 @@ class generator(nn.Module):
         self.conv7 = nn.ConvTranspose2d(128, 128, 4, 2, 1)
         self.conv8 = nn.Conv2d(128, 3, 3, 1, 1)
 
-        self.norm1 = nn.BatchNorm2d(8)
-        self.norm2 = nn.BatchNorm2d(8)
-        self.norm3 = nn.BatchNorm2d(8)
-        self.norm4 = nn.BatchNorm2d(8)
-        self.norm5 = nn.BatchNorm2d(16)
-        self.norm6 = nn.BatchNorm2d(16)
-        self.norm7 = nn.BatchNorm2d(32)
+        self.norm1 = nn.BatchNorm2d(128)
+        self.norm2 = nn.BatchNorm2d(128)
+        self.norm3 = nn.BatchNorm2d(128)
+        self.norm4 = nn.BatchNorm2d(128)
+        self.norm5 = nn.BatchNorm2d(128)
+        self.norm6 = nn.BatchNorm2d(128)
+        self.norm7 = nn.BatchNorm2d(128)
 
         self.tanh = nn.Tanh()
 
     def forward(self, x):
         x = self.fc1(x)
-        x = x.view(x.shape[0], 128, 4, 4)
-        x = F.relu(self.norm1(self.conv1(x)))
+        x = x.view(-1, 128, 4, 4)
+        x = self.conv1(x)
+        x = F.relu(self.norm1(x))
         x = F.relu(self.norm2(self.conv2(x)))
         x = F.relu(self.norm3(self.conv3(x)))
         x = F.relu(self.norm4(self.conv4(x)))
@@ -122,7 +123,7 @@ def calc_gradient_penalty(netD, real_data, fake_data):
     disc_interpolates = netD(interpolates)
     disc_interpolates = disc_interpolates[0]
 
-    gradients = autograd.grad(outputs=disc_interpolates, inputs=interpolates,
+    gradients = torch.autograd.grad(outputs=disc_interpolates, inputs=interpolates,
                               grad_outputs=torch.ones(disc_interpolates.size()).cuda(),
                               create_graph=True, retain_graph=True, only_inputs=True)[0]
 
@@ -305,9 +306,14 @@ for epoch in range(0,num_epochs):
                                     "%.2f" % np.mean(loss5), 
                                     "%.2f" % np.mean(acc1))
         # Clear ADAM parameters for bluewaters
-        for group in optimizer.param_groups:
+        for group in optimizer_g.param_groups:
             for p in group['params']:
-                state = optimizer.state[p]
+                state = optimizer_g.state[p]
+                if('step' in state and state['step']>=1024):
+                    state['step'] = 1000
+        for group in optimizer_d.param_groups:
+            for p in group['params']:
+                state = optimizer_d.state[p]
                 if('step' in state and state['step']>=1024):
                     state['step'] = 1000
 
@@ -339,7 +345,7 @@ for epoch in range(0,num_epochs):
         aG.train()
 
     fig = plot(samples)
-    plt.savefig('output/%s.png' % str(epoch).zfill(3), bbox_inches='tight')
+    plt.savefig('%s.png' % str(epoch).zfill(3), bbox_inches='tight')
     plt.close(fig)
 
     if(((epoch+1)%1)==0):

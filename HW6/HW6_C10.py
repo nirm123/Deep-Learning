@@ -18,6 +18,7 @@ import numpy as np
 # Hyper-parameters
 num_epochs = 100
 batch_size = 128
+learning_rate = 0.0001
 
 # Define Discriminator
 class discriminator(nn.Module):
@@ -53,7 +54,7 @@ class discriminator(nn.Module):
         x = F.leaky_relu(self.norm5(self.conv5(x)))
         x = F.leaky_relu(self.norm6(self.conv6(x)))
         x = F.leaky_relu(self.norm7(self.conv7(x)))
-        x = F.leaky_relu(self.norm8(self.conv8(x)))
+        x = self.pool1(F.leaky_relu(self.norm8(self.conv8(x))))
         x = x.view(-1, 128)
         
         return [self.fc1(x), self.fc10(x)]
@@ -126,6 +127,10 @@ model.cuda()
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
+# List of loss and accuracy
+loss_t = []
+accuracy = []
+
 # Train the model
 for epoch in range(0,num_epochs):
     if(epoch==50):
@@ -146,11 +151,23 @@ for epoch in range(0,num_epochs):
         output = output[1]
 
         loss = criterion(output, Y_train_batch)
+        loss_t.append(loss.item())
         optimizer.zero_grad()
 
         loss.backward()
         optimizer.step()
-    
+
+        # Calculate accuracy
+        predicted = F.softmax(output, dim = 1)
+        predicted = predicted.data.max(1)[1]
+        acc = float(predicted.eq(Y_train_batch.data).sum())
+        accuracy.append(acc/Y_train_batch.size(0))
+        
+        # Print training stats
+        if batch_idx % 100 == 0:
+            print('Epoch: ' + str(epoch+1) + '/' + str(num_epochs) + ', Step: ' + str(batch_idx+1) + '/' + str(len(trainloader)) + ', Loss: ' + str(loss.item()) + ', Accuracy: ' + str(acc/Y_train_batch.size(0)*100) + '%')
+           
+ 
         for group in optimizer.param_groups:
             for p in group['params']:
                 state = optimizer.state[p]
