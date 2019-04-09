@@ -180,7 +180,7 @@ model.eval()
 for X_test_batch, Y_test_batch in testloader:
     batch_size = Y_test_batch.size(0)
     with torch.no_grad():
-        data, target = Variable(X_test_batch).to(device), Variable(Y_test_batch).to(device)
+        data, target = Variable(X_test_batch).cuda(), Variable(Y_test_batch).cuda()
         out = model(data)
         out = out[1]
         loss = criterion(out, target)
