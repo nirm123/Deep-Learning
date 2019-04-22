@@ -3,13 +3,22 @@ import os
 import nltk
 import itertools
 import io
+import ssl
+
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
+else:
+    ssl._create_default_https_context = _create_unverified_https_context
+    nltk.download('punkt')
 
 ## create directory to store preprocessed data
 if(not os.path.isdir('preprocessed_data')):
     os.mkdir('preprocessed_data')
 
 ## get all of the training reviews (including unlabeled reviews)
-train_directory = '/projects/training/bauh/NLP/aclImdb/train/'
+train_directory = 'data/aclImdb/train/'
 
 ## Directory into folder of positive/negative/unlabled data
 pos_filenames = os.listdir(train_directory + 'pos/')
@@ -44,10 +53,10 @@ for filename in filenames:
     ## Add to trainlist
     x_train.append(line)
     count += 1
-    print(count)
+    #print(count)
 
 ## get all of the test reviews
-test_directory = '/projects/training/bauh/NLP/aclImdb/test/'
+test_directory = 'data/aclImdb/test/'
 
 ## Directory into folder of positive/negative data
 pos_filenames = os.listdir(test_directory + 'pos/')
@@ -78,7 +87,7 @@ for filename in filenames:
     ## Add to trainlist
     x_test.append(line)
     count += 1
-    print(count)
+    #print(count)
 
 ## number of tokens per review
 no_of_tokens = []
@@ -108,6 +117,11 @@ indices = np.argsort(-count)
 id_to_word = id_to_word[indices]
 count = count[indices]
 
+hist = np.histogram(count,bins=[1,10,100,1000,10000])
+print(hist)
+for i in range(10):
+    print(id_to_word[i],count[i])
+
 ## recreate word_to_id based on sorted list
 word_to_id = {token: idx for idx, token in enumerate(id_to_word)}
 
@@ -133,7 +147,7 @@ with io.open('preprocessed_data/imdb_test.txt','w',encoding='utf-8') as f:
             f.write("%i " % token)
         f.write("\n")
 
-glove_filename = '/projects/training/bauh/NLP/glove.840B.300d.txt'
+glove_filename = 'data/glove.840B.300d.txt'
 with io.open(glove_filename,'r',encoding='utf-8') as f:
     lines = f.readlines()
 
@@ -175,7 +189,3 @@ with io.open('preprocessed_data/imdb_test_glove.txt','w',encoding='utf-8') as f:
         for token in tokens:
             f.write("%i " % token)
         f.write("\n")
-hist = np.histogram(count,bins=[1,10,100,1000,10000])
-print(hist)
-for i in range(10):
-    print(id_to_word[i],count[i])
