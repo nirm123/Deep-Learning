@@ -13,16 +13,17 @@ import io
 
 from BOW_model import BOW_model
 
-#imdb_dictionary = np.load('../preprocessed_data/imdb_dictionary.npy')
+## Load glove embedding
+glove_embeddings = np.load('../preprocessed_data/glove_embeddings.npy')
 
 ## Number of unique words we are considering
-vocab_size = 8000
+vocab_size = 100000
 
 ## List of training samples
 x_train = []
 
 ## Open preprocessed training data
-with io.open('../preprocessed_data/imdb_train.txt','r',encoding='utf-8') as f:
+with io.open('../preprocessed_data/imdb_train_glove.txt','r',encoding='utf-8') as f:
     lines = f.readlines()
 
 ## Additional processing for each sample
@@ -36,9 +37,16 @@ for line in lines:
 
     ## Tokens greater than vocab size forced to unknown
     line[line>vocab_size] = 0
+    line = line[line!=0]
+
+    ## Use glove embedding
+    line = np.mean(glove_embeddings[line], axis=0)
 
     ## Append sample to training list
     x_train.append(line)
+
+## Convert list to array
+x_train = np.asarray(x_train)
 
 ## Only care about first 25000 labled samples
 x_train = x_train[0:25000]
@@ -51,7 +59,7 @@ y_train[0:12500] = 1
 x_test = []
 
 ## Open preprocessed testing data
-with io.open('../preprocessed_data/imdb_test.txt','r',encoding='utf-8') as f:
+with io.open('../preprocessed_data/imdb_test_glove.txt','r',encoding='utf-8') as f:
     lines = f.readlines()
 
 ## Additional processing for each sample
@@ -65,9 +73,16 @@ for line in lines:
 
     ## Tokens greater than vocab size forced to unknown
     line[line>vocab_size] = 0
+    line = line[line!=0]
+
+    ## Use glove embedding
+    line = np.mean(glove_embeddings[line], axis=0)
 
     ## Append sample to training list
     x_test.append(line)
+
+## Convert list to array
+x_test = np.asarray(x_test)
 
 ## Correct classification (first half positive, second half negative
 y_test = np.zeros((25000,))
@@ -77,14 +92,14 @@ y_test[0:12500] = 1
 vocab_size += 1
 
 ## Define model with 500 hidden units
-model = BOW_model(vocab_size,600)
+model = BOW_model(vocab_size,500)
 model.cuda()
 
 ## Define optimizer
 # opt = 'sgd'
 # LR = 0.01
 opt = 'adam'
-LR = 0.001
+LR = 0.01
 if(opt=='adam'):
     optimizer = optim.Adam(model.parameters(), lr=LR)
 elif(opt=='sgd'):
@@ -92,7 +107,7 @@ elif(opt=='sgd'):
 
 ## Hyper-parameters
 batch_size = 200
-no_of_epochs = 6
+no_of_epochs = 40
 
 ## Length of train/test set
 L_Y_train = len(y_train)
@@ -125,17 +140,18 @@ for epoch in range(no_of_epochs):
     ## Run through data
     for i in range(0, L_Y_train, batch_size):
         ## Select corresponding input and output from random permutation
-        x_input = [x_train[j] for j in I_permutation[i:i+batch_size]]
-        y_input = np.asarray([y_train[j] for j in I_permutation[i:i+batch_size]],dtype=np.int)
+        x_input = x_train[I_permutation[i:i+batch_size]]
+        y_input = y_train[I_permutation[i:i+batch_size]]
         
-        ## Move output to GPU
+        ## Move input/output to GPU
+        data = Variable(torch.FloatTensor(x_input)).cuda()
         target = Variable(torch.FloatTensor(y_input)).cuda()
 
         ## Zero out optimizer
         optimizer.zero_grad()
 
         ## Forward step
-        loss, pred = model(x_input,target)
+        loss, pred = model(data,target)
      
         ## Calculate backpropogation
         loss.backward()
@@ -185,15 +201,16 @@ for epoch in range(no_of_epochs):
     ## Iterate through batches of test data
     for i in range(0, L_Y_test, batch_size):
         ## Get corrext input/output test data
-        x_input = [x_test[j] for j in I_permutation[i:i+batch_size]]
-        y_input = np.asarray([y_test[j] for j in I_permutation[i:i+batch_size]],dtype=np.int)
+        x_input = x_test[I_permutation[i:i+batch_size]]
+        y_input = y_test[I_permutation[i:i+batch_size]]
 
         ## Move output to GPU
+        data = Variable(torch.FloatTensor(x_input)).cuda()
         target = Variable(torch.FloatTensor(y_input)).cuda()
 
         ## Forward step without gradient calculation
         with torch.no_grad():
-            loss, pred = model(x_input,target)
+            loss, pred = model(data,target)
         
         ## Convert predicted real output into binary
         prediction = pred >= 0.0
@@ -224,7 +241,7 @@ for epoch in range(no_of_epochs):
     print("  ", "%.2f" % (epoch_acc*100.0), "%.4f" % epoch_loss)
 
 ## Save model and output
-torch.save(model,'BOW4.model')
+torch.save(model,'BOW.model')
 data = [train_loss,train_accu,test_accu]
 data = np.asarray(data)
-np.save('data4.npy',data)
+np.save('data.npy',data)
